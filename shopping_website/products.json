@@ -1,0 +1,18 @@
+{
+  "ebooks": [
+    {"id": 1, "name": "Web Development Basics", "cost_price": 5.00, "sell_price": 19.99, "category": "ebooks", "description": "Learn HTML, CSS and JavaScript fundamentals"},
+    {"id": 2, "name": "Python Programming Guide", "cost_price": 8.00, "sell_price": 24.99, "category": "ebooks", "description": "Complete Python programming tutorial"},
+    {"id": 3, "name": "Database Design Manual", "cost_price": 6.00, "sell_price": 22.99, "category": "ebooks", "description": "Learn SQL and database principles"}
+  ],
+  "courses": [
+    {"id": 4, "name": "Flask Web Development Course", "cost_price": 20.00, "sell_price": 49.99, "category": "courses", "description": "Build web applications with Flask"},
+    {"id": 5, "name": "JavaScript Masterclass", "cost_price": 15.00, "sell_price": 39.99, "category": "courses", "description": "Advanced JavaScript programming"},
+    {"id": 6, "name": "Responsive Design Workshop", "cost_price": 12.00, "sell_price": 34.99, "category": "courses", "description": "Create mobile-friendly websites"}
+  ],
+  "software": [
+    {"id": 7, "name": "Code Editor Pro", "cost_price": 10.00, "sell_price": 29.99, "category": "software", "description": "Professional code editing software"},
+    {"id": 8, "name": "Web Design Toolkit", "cost_price": 15.00, "sell_price": 44.99, "category": "software", "description": "Complete web design software package"},
+    {"id": 9, "name": "Database Manager", "cost_price": 18.00, "sell_price": 54.99, "category": "software", "description": "Manage your databases efficiently"},
+    {"id": 10, "name": "Project Planning App", "cost_price": 8.00, "sell_price": 24.99, "category": "software", "description": "Organize your development projects"}
+  ]
+}
