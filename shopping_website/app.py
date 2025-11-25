@@ -7,12 +7,15 @@ from models import db, Product, Order, OrderItem
 app = Flask(__name__, instance_path='/tmp')
 app.secret_key = 'shopping_secret_key'
 
-# Database configuration
-# For production (Vercel), use POSTGRES_URL environment variable
-# For local development, use SQLite
-database_url = os.environ.get('POSTGRES_URL')
+# Database configuration - try multiple environment variable names
+database_url = (
+    os.environ.get('POSTGRES_URL') or 
+    os.environ.get('DATABASE_URL') or
+    os.environ.get('POSTGRES_PRISMA_URL')
+)
+
 if database_url:
-    # Vercel Postgres URL format fix (if needed)
+    # Fix postgres:// to postgresql:// if needed
     if database_url.startswith("postgres://"):
         database_url = database_url.replace("postgres://", "postgresql://", 1)
     app.config['SQLALCHEMY_DATABASE_URI'] = database_url
@@ -29,47 +32,30 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
 # Initialize database
 db.init_app(app)
 
-def initialize_database():
-    """Initialize database and seed sample data - only if database URL is configured"""
-    # Don't initialize if no proper database is configured
-    if not os.environ.get('POSTGRES_URL'):
-        print("No Postgres database configured. Please add Vercel Postgres database.")
-        return
-    
+def seed_products():
+    """Load and insert products from JSON file"""
     try:
-        with app.app_context():
-            # Create all tables
-            db.create_all()
-            
-            # Check if products already exist
-            if Product.query.first() is None:
-                print("Seeding database with sample products...")
-                
-                # Load products from JSON file
-                try:
-                    with open('products.json', 'r') as f:
-                        products_data = json.load(f)
-                    
-                    # Add all products to database
-                    for category, products in products_data.items():
-                        for product_data in products:
-                            product = Product(
-                                id=product_data['id'],
-                                name=product_data['name'],
-                                description=product_data.get('description', ''),
-                                cost_price=product_data['cost_price'],
-                                sell_price=product_data['sell_price'],
-                                category=product_data['category']
-                            )
-                            db.session.add(product)
-                    
-                    db.session.commit()
-                    print(f"Successfully seeded {Product.query.count()} products!")
-                except Exception as e:
-                    print(f"Error seeding database: {e}")
-                    db.session.rollback()
+        with open('products.json', 'r') as f:
+            products_data = json.load(f)
+        
+        for category, products in products_data.items():
+            for product_data in products:
+                product = Product(
+                    id=product_data['id'],
+                    name=product_data['name'],
+                    description=product_data.get('description', ''),
+                    cost_price=product_data['cost_price'],
+                    sell_price=product_data['sell_price'],
+                    category=product_data['category']
+                )
+                db.session.add(product)
+        
+        db.session.commit()
+        return True
     except Exception as e:
-        print(f"Database initialization error: {e}")
+        db.session.rollback()
+        print(f"Error seeding products: {e}")
+        return False
 
 # Don't call initialize_database() at module level - it won't work in Vercel's serverless environment
 
@@ -135,8 +121,14 @@ def index():
     """Display all products organized by category"""
     try:
         # Auto-initialize database if empty (first request)
-        if Product.query.count() == 0:
-            initialize_database()
+        try:
+            if Product.query.count() == 0:
+                db.create_all()
+                seed_products()
+        except:
+            # Tables don't exist yet
+            db.create_all()
+            seed_products()
         
         # Get all products from database
         all_products = Product.query.all()
