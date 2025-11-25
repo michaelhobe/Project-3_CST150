@@ -77,8 +77,18 @@ def initialize_database():
 def init_db():
     """Manual database initialization endpoint"""
     try:
-        if not os.environ.get('POSTGRES_URL'):
-            return jsonify({'error': 'No database configured'}), 500
+        # Check for any Postgres environment variable
+        db_url = os.environ.get('POSTGRES_URL') or os.environ.get('DATABASE_URL')
+        if not db_url:
+            # Return diagnostic info
+            return jsonify({
+                'error': 'No database configured',
+                'env_vars': {
+                    'POSTGRES_URL': 'set' if os.environ.get('POSTGRES_URL') else 'not set',
+                    'DATABASE_URL': 'set' if os.environ.get('DATABASE_URL') else 'not set',
+                    'app_db_uri': app.config.get('SQLALCHEMY_DATABASE_URI', 'not set')[:50]
+                }
+            }), 500
         
         # Create all tables
         db.create_all()
