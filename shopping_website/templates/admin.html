@@ -1,0 +1,125 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container">
+    <h1>Admin Dashboard</h1>
+    
+    <h2>Order Management</h2>
+    
+    {% if orders %}
+        <div class="orders-list">
+            {% for order in orders %}
+            <div class="order-card">
+                <div class="order-header">
+                    <h3>Order #{{ order.id }}</h3>
+                    <span class="order-status">{{ order.status }}</span>
+                </div>
+                
+                <div class="order-details">
+                    <p><strong>Date:</strong> {{ order.order_date }}</p>
+                    <p><strong>Customer Email:</strong> {{ order.customer_email }}</p>
+                    <p><strong>Phone:</strong> {{ order.customer_phone }}</p>
+                    <p><strong>Suburb:</strong> {{ order.customer_suburb }}</p>
+                </div>
+                
+                <div class="order-items">
+                    <h4>Items:</h4>
+                    <ul>
+                        {% for item in order.items %}
+                        <li>
+                            {{ item.product_name }} - 
+                            Quantity: {{ item.quantity }} - 
+                            Price: ${{ "%.2f"|format(item.price_at_purchase) }} - 
+                            Subtotal: ${{ "%.2f"|format(item.subtotal) }}
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                
+                <div class="order-total">
+                    <strong>Total: ${{ "%.2f"|format(order.total_amount) }}</strong>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <p>No orders yet.</p>
+    {% endif %}
+</div>
+
+<style>
+.orders-list {
+    margin-top: 2rem;
+}
+
+.order-card {
+    background: #f9f9f9;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.order-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 2px solid #333;
+    padding-bottom: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.order-header h3 {
+    margin: 0;
+}
+
+.order-status {
+    background: #4CAF50;
+    color: white;
+    padding: 0.25rem 0.75rem;
+    border-radius: 4px;
+    font-size: 0.9rem;
+}
+
+.order-details {
+    margin-bottom: 1rem;
+}
+
+.order-details p {
+    margin: 0.25rem 0;
+}
+
+.order-items {
+    margin: 1rem 0;
+    padding: 1rem;
+    background: white;
+    border-radius: 4px;
+}
+
+.order-items h4 {
+    margin-top: 0;
+}
+
+.order-items ul {
+    list-style: none;
+    padding: 0;
+}
+
+.order-items li {
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #eee;
+}
+
+.order-items li:last-child {
+    border-bottom: none;
+}
+
+.order-total {
+    text-align: right;
+    font-size: 1.2rem;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 2px solid #333;
+}
+</style>
+{% endblock %}

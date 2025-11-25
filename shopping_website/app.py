@@ -1,91 +1,218 @@
-from flask import Flask, render_template, request, redirect, url_for, session, flash
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
 import json
 import os
 from datetime import datetime
+from models import db, Product, Order, OrderItem
 
-app = Flask(__name__)
+app = Flask(__name__, instance_path='/tmp')
 app.secret_key = 'shopping_secret_key'
 
-# Data files (like restaurant system)
-PRODUCTS_FILE = 'products.json'
-ORDERS_FILE = 'orders.json'
+# Database configuration
+# For production (Vercel), use POSTGRES_URL environment variable
+# For local development, use SQLite
+database_url = os.environ.get('POSTGRES_URL')
+if database_url:
+    # Vercel Postgres URL format fix (if needed)
+    if database_url.startswith("postgres://"):
+        database_url = database_url.replace("postgres://", "postgresql://", 1)
+    app.config['SQLALCHEMY_DATABASE_URI'] = database_url
+else:
+    # Local development - use SQLite
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///shopping.db'
 
-# Initialize data (adapted from restaurant initialize_data function)
-def initialize_data():
-    try:
-        with open(PRODUCTS_FILE, 'r') as f:
-            products = json.load(f)
-    except:
-        # Default products if file doesn't exist
-        products = {
-            'ebooks': [
-                {'id': 1, 'name': 'Web Dev Basics', 'cost_price': 5.00, 'sell_price': 19.99, 'category': 'ebooks'},
-                {'id': 2, 'name': 'Python Guide', 'cost_price': 8.00, 'sell_price': 24.99, 'category': 'ebooks'}
-            ],
-            'courses': [
-                {'id': 3, 'name': 'Flask Course', 'cost_price': 20.00, 'sell_price': 49.99, 'category': 'courses'},
-                {'id': 4, 'name': 'JavaScript Basics', 'cost_price': 15.00, 'sell_price': 39.99, 'category': 'courses'}
-            ]
-        }
-        with open(PRODUCTS_FILE, 'w') as f:
-            json.dump(products, f)
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    'pool_pre_ping': True,
+    'pool_recycle': 300,
+}
+
+# Initialize database
+db.init_app(app)
+
+def initialize_database():
+    """Initialize database and seed sample data - only if database URL is configured"""
+    # Don't initialize if no proper database is configured
+    if not os.environ.get('POSTGRES_URL'):
+        print("No Postgres database configured. Please add Vercel Postgres database.")
+        return
     
     try:
-        with open(ORDERS_FILE, 'r') as f:
-            orders = json.load(f)
-    except:
-        orders = []
-        with open(ORDERS_FILE, 'w') as f:
-            json.dump(orders, f)
-    
-    return products, orders
+        with app.app_context():
+            # Create all tables
+            db.create_all()
+            
+            # Check if products already exist
+            if Product.query.first() is None:
+                print("Seeding database with sample products...")
+                
+                # Load products from JSON file
+                try:
+                    with open('products.json', 'r') as f:
+                        products_data = json.load(f)
+                    
+                    # Add all products to database
+                    for category, products in products_data.items():
+                        for product_data in products:
+                            product = Product(
+                                id=product_data['id'],
+                                name=product_data['name'],
+                                description=product_data.get('description', ''),
+                                cost_price=product_data['cost_price'],
+                                sell_price=product_data['sell_price'],
+                                category=product_data['category']
+                            )
+                            db.session.add(product)
+                    
+                    db.session.commit()
+                    print(f"Successfully seeded {Product.query.count()} products!")
+                except Exception as e:
+                    print(f"Error seeding database: {e}")
+                    db.session.rollback()
+    except Exception as e:
+        print(f"Database initialization error: {e}")
 
-# Save data (from restaurant system)
-def save_data(data_type, data):
-    if data_type == 'products':
-        with open(PRODUCTS_FILE, 'w') as f:
-            json.dump(data, f)
-    elif data_type == 'orders':
-        with open(ORDERS_FILE, 'w') as f:
-            json.dump(data, f)
+# Initialize database on startup (only if Postgres is configured)
+initialize_database()
 
-# Load initial data
-products, orders = initialize_data()
-
-# Routes (adapted from restaurant system)
 @app.route('/')
 def index():
-    return render_template('index.html', products=products)
+    """Display all products organized by category"""
+    try:
+        # Get all products from database
+        all_products = Product.query.all()
+        
+        # Organize products by category
+        products = {
+            'ebooks': [],
+            'courses': [],
+            'software': []
+        }
+        
+        for product in all_products:
+            if product.category in products:
+                products[product.category].append(product.to_dict())
+        
+        return render_template('index.html', products=products)
+    except Exception as e:
+        print(f"Error loading products: {e}")
+        flash('Error loading products')
+        return render_template('index.html', products={'ebooks': [], 'courses': [], 'software': []})
 
 @app.route('/cart')
 def cart():
+    """Display shopping cart"""
     return render_template('cart.html')
 
 @app.route('/checkout', methods=['GET', 'POST'])
 def checkout():
+    """Handle checkout process"""
     if request.method == 'POST':
-        # Get customer details (like restaurant table_number)
-        email = request.form.get('email')
-        phone = request.form.get('phone')
-        suburb = request.form.get('suburb')
-        
-        # Basic validation
-        if not email or not phone or not suburb:
-            flash('All fields are required')
+        try:
+            # Get customer details
+            email = request.form.get('email')
+            phone = request.form.get('phone')
+            suburb = request.form.get('suburb')
+            cart_data = request.form.get('cart_data')
+            
+            # Validate input
+            if not all([email, phone, suburb, cart_data]):
+                flash('All fields are required')
+                return redirect(url_for('checkout'))
+            
+            # Parse cart data
+            cart_items = json.loads(cart_data)
+            
+            if not cart_items:
+                flash('Your cart is empty')
+                return redirect(url_for('cart'))
+            
+            # Calculate total
+            total_amount = sum(item['price'] * item['quantity'] for item in cart_items)
+            
+            # Create order
+            order = Order(
+                customer_email=email,
+                customer_phone=phone,
+                customer_suburb=suburb,
+                total_amount=total_amount,
+                status='completed'
+            )
+            db.session.add(order)
+            db.session.flush()  # Get order ID
+            
+            # Create order items
+            for item in cart_items:
+                order_item = OrderItem(
+                    order_id=order.id,
+                    product_id=item['id'],
+                    product_name=item['name'],
+                    quantity=item['quantity'],
+                    price_at_purchase=item['price']
+                )
+                db.session.add(order_item)
+            
+            db.session.commit()
+            
+            # Store order ID in session for confirmation page
+            session['last_order_id'] = order.id
+            session['last_order_total'] = total_amount
+            
+            flash('Order placed successfully!')
+            return redirect(url_for('confirmation'))
+            
+        except Exception as e:
+            db.session.rollback()
+            print(f"Error processing order: {e}")
+            flash('Error processing your order. Please try again.')
             return redirect(url_for('checkout'))
-        
-        # For now, just redirect to confirmation
-        return redirect(url_for('confirmation'))
     
-    return render_template('checkout.html')
+    return render_template('vercel_checkout.html')
 
 @app.route('/confirmation')
 def confirmation():
-    return render_template('confirmation.html')
+    """Display order confirmation"""
+    order_id = session.get('last_order_id')
+    order_total = session.get('last_order_total', 0)
+    
+    return render_template('confirmation.html', order_id=order_id, order_total=order_total)
 
 @app.route('/admin')
 def admin():
-    return render_template('admin.html', orders=orders)
+    """Display admin dashboard with all orders"""
+    try:
+        # Get all orders with their items
+        orders = Order.query.order_by(Order.order_date.desc()).all()
+        orders_data = [order.to_dict() for order in orders]
+        
+        return render_template('admin.html', orders=orders_data)
+    except Exception as e:
+        print(f"Error loading orders: {e}")
+        flash('Error loading orders')
+        return render_template('admin.html', orders=[])
+
+@app.route('/api/products')
+def api_products():
+    """API endpoint to get all products"""
+    try:
+        products = Product.query.all()
+        return jsonify([product.to_dict() for product in products])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/orders/<int:order_id>')
+def api_order(order_id):
+    """API endpoint to get specific order details"""
+    try:
+        order = Order.query.get_or_404(order_id)
+        return jsonify(order.to_dict())
+    except Exception as e:
+        return jsonify({'error': str(e)}), 404
+
+# Health check endpoint for Vercel
+@app.route('/health')
+def health():
+    """Health check endpoint"""
+    return jsonify({'status': 'healthy', 'database': 'connected'})
 
 if __name__ == '__main__':
     app.run(debug=True)

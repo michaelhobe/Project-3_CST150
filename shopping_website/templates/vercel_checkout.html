@@ -1,0 +1,96 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container">
+    <h1>Checkout</h1>
+    
+    <div id="checkout-cart-summary">
+        <h2>Order Summary</h2>
+        <div id="checkout-items"></div>
+        <div id="checkout-total"></div>
+    </div>
+    
+    <form method="post" id="checkout-form">
+        <div class="form-group">
+            <label for="email">Email:</label>
+            <input type="email" id="email" name="email" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="phone">Phone:</label>
+            <input type="tel" id="phone" name="phone" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="suburb">Suburb:</label>
+            <input type="text" id="suburb" name="suburb" required>
+        </div>
+        
+        <!-- Hidden field to send cart data -->
+        <input type="hidden" id="cart_data" name="cart_data">
+        
+        <button type="submit" class="btn">Complete Order</button>
+        <a href="{{ url_for('cart') }}" class="btn" style="background: #666;">Back to Cart</a>
+    </form>
+</div>
+
+<script>
+// Display cart summary and prepare data for form submission
+document.addEventListener('DOMContentLoaded', function() {
+    displayCheckoutSummary();
+    
+    // Add cart data to form when submitting
+    document.getElementById('checkout-form').addEventListener('submit', function(e) {
+        const cart = getCart();
+        if (cart.length === 0) {
+            e.preventDefault();
+            alert('Your cart is empty!');
+            return;
+        }
+        document.getElementById('cart_data').value = JSON.stringify(cart);
+    });
+});
+
+function displayCheckoutSummary() {
+    const cart = getCart();
+    const itemsContainer = document.getElementById('checkout-items');
+    const totalContainer = document.getElementById('checkout-total');
+    
+    if (cart.length === 0) {
+        itemsContainer.innerHTML = '<p>Your cart is empty</p>';
+        totalContainer.innerHTML = '';
+        return;
+    }
+    
+    let itemsHTML = '';
+    cart.forEach(item => {
+        itemsHTML += `
+            <div class="checkout-item">
+                <span>${item.name} x ${item.quantity}</span>
+                <span>$${(item.price * item.quantity).toFixed(2)}</span>
+            </div>
+        `;
+    });
+    
+    const total = calculateTotal();
+    totalContainer.innerHTML = `<h3>Total: $${total.toFixed(2)}</h3>`;
+    itemsContainer.innerHTML = itemsHTML;
+}
+</script>
+
+<style>
+.checkout-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #eee;
+}
+
+#checkout-cart-summary {
+    background: #f9f9f9;
+    padding: 1rem;
+    margin-bottom: 2rem;
+    border-radius: 8px;
+}
+</style>
+{% endblock %}

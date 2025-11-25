@@ -1,0 +1,134 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container">
+    <div class="confirmation-box">
+        <div class="success-icon">✓</div>
+        <h1>Order Confirmed!</h1>
+        
+        {% if order_id %}
+        <div class="order-info">
+            <h2>Thank you for your order!</h2>
+            <p class="order-number">Order #{{ order_id }}</p>
+            <p class="order-total">Total: ${{ "%.2f"|format(order_total) }}</p>
+        </div>
+        {% else %}
+        <div class="order-info">
+            <h2>Thank you for your order!</h2>
+            <p>Your order has been successfully placed.</p>
+        </div>
+        {% endif %}
+        
+        <div class="confirmation-message">
+            <p>We've received your order and will process it shortly.</p>
+            <p>A confirmation email will be sent to the email address you provided.</p>
+        </div>
+        
+        <div class="action-buttons">
+            <a href="{{ url_for('index') }}" class="btn btn-primary">Continue Shopping</a>
+            <a href="{{ url_for('admin') }}" class="btn btn-secondary">View Orders</a>
+        </div>
+    </div>
+</div>
+
+<style>
+.confirmation-box {
+    max-width: 600px;
+    margin: 3rem auto;
+    padding: 3rem;
+    text-align: center;
+    background: #f9f9f9;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.success-icon {
+    width: 80px;
+    height: 80px;
+    margin: 0 auto 1rem;
+    background: #4CAF50;
+    color: white;
+    font-size: 3rem;
+    line-height: 80px;
+    border-radius: 50%;
+    font-weight: bold;
+}
+
+.confirmation-box h1 {
+    color: #333;
+    margin-bottom: 1rem;
+}
+
+.order-info {
+    background: white;
+    padding: 1.5rem;
+    margin: 2rem 0;
+    border-radius: 8px;
+    border: 2px solid #4CAF50;
+}
+
+.order-number {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #333;
+    margin: 0.5rem 0;
+}
+
+.order-total {
+    font-size: 1.3rem;
+    color: #2196F3;
+    font-weight: bold;
+    margin: 0.5rem 0;
+}
+
+.confirmation-message {
+    margin: 2rem 0;
+    color: #666;
+}
+
+.confirmation-message p {
+    margin: 0.5rem 0;
+}
+
+.action-buttons {
+    margin-top: 2rem;
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+}
+
+.btn {
+    padding: 0.75rem 1.5rem;
+    border-radius: 6px;
+    text-decoration: none;
+    font-weight: bold;
+    transition: all 0.3s ease;
+}
+
+.btn-primary {
+    background: #2196F3;
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #1976D2;
+    transform: translateY(-2px);
+}
+
+.btn-secondary {
+    background: #666;
+    color: white;
+}
+
+.btn-secondary:hover {
+    background: #555;
+    transform: translateY(-2px);
+}
+</style>
+
+<script>
+// Clear cart after successful order
+localStorage.removeItem('shopping_cart');
+updateCartCount();
+</script>
+{% endblock %}
