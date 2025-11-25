@@ -14,6 +14,7 @@ class Product(db.Model):
     cost_price = db.Column(db.Float, nullable=False)
     sell_price = db.Column(db.Float, nullable=False)
     category = db.Column(db.String(100), nullable=False)
+    image_url = db.Column(db.String(500))  # New field for Vercel Blob URLs
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     def to_dict(self):
@@ -23,7 +24,8 @@ class Product(db.Model):
             'description': self.description,
             'cost_price': self.cost_price,
             'sell_price': self.sell_price,
-            'category': self.category
+            'category': self.category,
+            'image_url': self.image_url
         }
 
 class Order(db.Model):

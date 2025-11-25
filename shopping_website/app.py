@@ -46,7 +46,8 @@ def seed_products():
                     description=product_data.get('description', ''),
                     cost_price=product_data['cost_price'],
                     sell_price=product_data['sell_price'],
-                    category=product_data['category']
+                    category=product_data['category'],
+                    image_url=product_data.get('image_url')  # Support optional image URLs
                 )
                 db.session.add(product)
         
