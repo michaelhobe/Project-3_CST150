@@ -167,22 +167,32 @@ def checkout():
             suburb = request.form.get('suburb')
             cart_data = request.form.get('cart_data')
             
+            # Debug logging
+            print(f"DEBUG: Received checkout request")
+            print(f"DEBUG: Email={email}, Phone={phone}, Suburb={suburb}")
+            print(f"DEBUG: Cart data length={len(cart_data) if cart_data else 0}")
+            
             # Validate input
             if not all([email, phone, suburb, cart_data]):
+                print("DEBUG: Missing required fields")
                 flash('All fields are required')
                 return redirect(url_for('checkout'))
             
             # Parse cart data
             cart_items = json.loads(cart_data)
+            print(f"DEBUG: Cart items parsed: {len(cart_items)} items")
             
             if not cart_items:
+                print("DEBUG: Cart is empty")
                 flash('Your cart is empty')
                 return redirect(url_for('cart'))
             
             # Calculate total
             total_amount = sum(item['price'] * item['quantity'] for item in cart_items)
+            print(f"DEBUG: Total amount calculated: ${total_amount}")
             
             # Create order
+            print("DEBUG: Creating order object")
             order = Order(
                 customer_email=email,
                 customer_phone=phone,
@@ -190,11 +200,18 @@ def checkout():
                 total_amount=total_amount,
                 status='completed'
             )
+            
+            print("DEBUG: Adding order to session")
             db.session.add(order)
+            
+            print("DEBUG: Flushing to get order ID")
             db.session.flush()  # Get order ID
+            print(f"DEBUG: Order ID assigned: {order.id}")
             
             # Create order items
-            for item in cart_items:
+            print("DEBUG: Creating order items")
+            for idx, item in enumerate(cart_items):
+                print(f"DEBUG: Creating item {idx+1}: {item['name']}")
                 order_item = OrderItem(
                     order_id=order.id,
                     product_id=item['id'],
@@ -204,7 +221,16 @@ def checkout():
                 )
                 db.session.add(order_item)
             
+            print("DEBUG: Committing transaction")
             db.session.commit()
+            print(f"DEBUG: Order {order.id} committed successfully!")
+            
+            # Verify order was saved
+            saved_order = Order.query.get(order.id)
+            if saved_order:
+                print(f"DEBUG: Order verification successful - found order {saved_order.id} with {len(saved_order.order_items)} items")
+            else:
+                print(f"DEBUG: WARNING - Order {order.id} not found after commit!")
             
             # Store order ID in session for confirmation page
             session['last_order_id'] = order.id
@@ -215,8 +241,10 @@ def checkout():
             
         except Exception as e:
             db.session.rollback()
-            print(f"Error processing order: {e}")
-            flash('Error processing your order. Please try again.')
+            print(f"ERROR: Exception processing order: {type(e).__name__}: {str(e)}")
+            import traceback
+            print(f"ERROR: Traceback: {traceback.format_exc()}")
+            flash(f'Error processing your order: {str(e)}')
             return redirect(url_for('checkout'))
     
     return render_template('vercel_checkout.html')
@@ -266,6 +294,58 @@ def api_order(order_id):
 def health():
     """Health check endpoint"""
     return jsonify({'status': 'healthy', 'database': 'connected'})
+
+@app.route('/debug/db')
+def debug_db():
+    """Database diagnostic endpoint"""
+    try:
+        # Get database URL (masked for security)
+        db_uri = app.config.get('SQLALCHEMY_DATABASE_URI', 'not set')
+        db_uri_masked = db_uri[:20] + '...' + db_uri[-20:] if len(db_uri) > 40 else db_uri
+        
+        # Test database connection
+        from sqlalchemy import text
+        with db.engine.connect() as conn:
+            result = conn.execute(text("SELECT 1"))
+            db_connected = result.fetchone()[0] == 1
+        
+        # Count records in each table
+        product_count = Product.query.count()
+        order_count = Order.query.count()
+        order_item_count = OrderItem.query.count()
+        
+        # Get recent orders
+        recent_orders = Order.query.order_by(Order.order_date.desc()).limit(5).all()
+        recent_orders_data = [{
+            'id': o.id,
+            'email': o.customer_email,
+            'total': o.total_amount,
+            'date': o.order_date.isoformat() if o.order_date else None,
+            'items_count': len(o.order_items)
+        } for o in recent_orders]
+        
+        return jsonify({
+            'status': 'success',
+            'database': {
+                'uri': db_uri_masked,
+                'connected': db_connected,
+                'engine': str(db.engine.url.get_backend_name())
+            },
+            'tables': {
+                'products': product_count,
+                'orders': order_count,
+                'order_items': order_item_count
+            },
+            'recent_orders': recent_orders_data
+        })
+        
+    except Exception as e:
+        import traceback
+        return jsonify({
+            'status': 'error',
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 500
 
 if __name__ == '__main__':
     app.run(debug=True)
