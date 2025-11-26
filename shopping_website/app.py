@@ -275,12 +275,19 @@ def admin():
     try:
         # Get all orders with their items
         orders = Order.query.order_by(Order.order_date.desc()).all()
+        print(f"DEBUG: Found {len(orders)} orders in database")
+        
         orders_data = [order.to_dict() for order in orders]
+        print(f"DEBUG: Converted {len(orders_data)} orders to dict")
+        print(f"DEBUG: First order data: {orders_data[0] if orders_data else 'No orders'}")
         
         return render_template('admin.html', orders=orders_data)
     except Exception as e:
-        print(f"Error loading orders: {e}")
-        flash('Error loading orders')
+        import traceback
+        error_msg = f"Error loading orders: {str(e)}"
+        print(error_msg)
+        print(f"Traceback: {traceback.format_exc()}")
+        flash(error_msg)
         return render_template('admin.html', orders=[])
 
 @app.route('/api/products')
